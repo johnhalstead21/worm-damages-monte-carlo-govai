@@ -53,4 +53,8 @@ python worm_damages_monte_carlo.py
 
 ## Data Source
 
-Input data from the "Combined author and survey" tab of the worm damages spreadsheet (v4, with corrected data entry). See the accompanying paper for full methodology.
+Input data from the "Combined author and survey" tab of the worm damages spreadsheet (updated). End-to-end capability, willingness, and potential-damages-per-event triplets are taken as (5th percentile, median, 95th percentile). Potential damages per event are $1B (low) / ~$12.2B (geomean) / $150B (high). See the accompanying paper for full methodology.
+
+## A note on the charts
+
+In the baseline-vs-conditional and marginal charts, each coloured **bar spans the 90% confidence interval** (the 5th to 95th percentile of the Monte Carlo output) and the **horizontal line marks the median**. The threat-actor charts are 100%-stacked shares of median expected damages, not confidence intervals.

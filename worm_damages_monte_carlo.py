@@ -41,7 +41,7 @@ N_SAMPLES = 200_000
 baseline_cap = {
     'Author': {
         'TA1': (0, 0, 0),
-        'TA2': (1e-6, 0.0001005, 0.0002),
+        'TA2': (1e-6, 7.55e-05, 0.00015),     # updated
         'TA3': (0.0005, 0.03025, 0.06),
         'TA4': (0.05, 0.325, 0.6),
         'TA5': (0.9, 0.945, 0.99),
@@ -112,8 +112,8 @@ willingness = {
     },
 }
 
-# --- Potential damages per event ---
-damages_triplet = (10e9, 31.622776602e9, 100e9)  # ($10B, ~$31.6B geomean, $100B)
+# --- Potential damages per event (rows 108-110) ---
+damages_triplet = (1e9, 12247448714.0, 150e9)  # ($1B, ~$12.2B geomean, $150B)
 
 # ============================================================
 # Distribution fitting utilities
@@ -379,8 +379,8 @@ def make_main_chart(all_stats, log_scale, filename, method_label=''):
         ax.set_ylim(3e7, 2e11)
         ax.yaxis.set_major_locator(ticker.LogLocator(base=10, numticks=10))
     else:
-        ax.set_ylim(-5e9, 95e9)
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(10e9))
+        ax.set_ylim(-5e9, 128e9)
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(20e9))
 
     ax.set_xlim(-0.6, group_starts[1] + 3 * (bar_w + bar_gap) + 0.1)
     ax.spines['top'].set_visible(False)
@@ -411,10 +411,14 @@ def make_main_chart(all_stats, log_scale, filename, method_label=''):
     title = 'Expected damages from at least one\ndata-damaging worm attack'
     if method_label:
         title += f' ({method_label})'
-    fig.suptitle(title, fontsize=14, fontweight='bold', y=0.98, color='#222222')
+    fig.suptitle(title, fontsize=14, fontweight='bold', y=0.985, color='#222222')
+    fig.text(0.5, 0.905,
+             'Bars span the 90% confidence interval (5th–95th percentile); '
+             'horizontal line marks the median',
+             ha='center', va='center', fontsize=8.5, style='italic', color='#666666')
     ax.set_ylabel('Expected damages', fontsize=10, color='#555555', labelpad=8)
 
-    plt.tight_layout(rect=[0, 0.06, 1, 0.90])
+    plt.tight_layout(rect=[0, 0.06, 1, 0.88])
     for ext in ['png', 'svg']:
         plt.savefig(f'{filename}.{ext}', dpi=200, bbox_inches='tight',
                     facecolor=fig.get_facecolor())
@@ -488,8 +492,8 @@ def make_marginal_chart(all_stats, log_scale, filename, method_label=''):
         ax.set_ylim(5e7, 5e10)
         ax.yaxis.set_major_locator(ticker.LogLocator(base=10, numticks=10))
     else:
-        ax.set_ylim(-2e9, 22e9)
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(5e9))
+        ax.set_ylim(-3e9, 52e9)
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(10e9))
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -507,9 +511,13 @@ def make_marginal_chart(all_stats, log_scale, filename, method_label=''):
     title = 'Marginal expected damages from\nAI elite exploit capability uplift'
     if method_label:
         title += f' ({method_label})'
-    fig.suptitle(title, fontsize=14, fontweight='bold', y=0.98, color='#222222')
+    fig.suptitle(title, fontsize=14, fontweight='bold', y=0.985, color='#222222')
+    fig.text(0.5, 0.905,
+             'Bars span the 90% confidence interval (5th–95th percentile); '
+             'horizontal line marks the median',
+             ha='center', va='center', fontsize=8, style='italic', color='#666666')
 
-    plt.tight_layout(rect=[0, 0, 1, 0.92])
+    plt.tight_layout(rect=[0, 0, 1, 0.88])
     for ext in ['png', 'svg']:
         plt.savefig(f'{filename}.{ext}', dpi=200, bbox_inches='tight',
                     facecolor=fig.get_facecolor())
@@ -620,10 +628,23 @@ def run_analysis(method, file_prefix):
             s = all_stats[f'{est}_{group}']
             print(f"{group:<14} {est:<14} {fmt(s['p5']):>12} {fmt(s['median']):>12} {fmt(s['p95']):>12}")
 
-    # Verification against spreadsheet medians
-    print(f"\n--- Verification (MC median vs spreadsheet) ---")
-    ss_baseline = {'Author': 1280770629, 'Experts': 12286666646, 'Forecasters': 8087107766}
-    ss_cond = {'Author': 7876122470, 'Experts': 22859847192, 'Forecasters': 16250331804}
+    # Verification against the spreadsheet's deterministic point estimate.
+    # The spreadsheet computes a single-point expected loss using median inputs:
+    #   P(>=1 worm) = 1 - prod_i(1 - cap_median_i * will_median_i)
+    #   expected    = P(>=1 worm) * median (geomean) damages
+    # We recompute it here from the same input data so it never goes stale.
+    def deterministic_median_estimate(cap_data, will_data, dmg_med):
+        surv = 1.0
+        for ta in ['TA1', 'TA2', 'TA3', 'TA4', 'TA5']:
+            surv *= (1 - cap_data[ta][1] * will_data[ta][1])
+        return (1 - surv) * dmg_med
+
+    dmg_med = damages_triplet[1]
+    ss_baseline = {est: deterministic_median_estimate(baseline_cap[est], willingness[est], dmg_med)
+                   for est in ESTIMATORS}
+    ss_cond = {est: deterministic_median_estimate(cond_cap[est], willingness[est], dmg_med)
+               for est in ESTIMATORS}
+    print(f"\n--- Verification (MC median vs spreadsheet deterministic point estimate) ---")
     for est in ESTIMATORS:
         mc_bl = all_stats[f'{est}_baseline']['median']
         mc_cd = all_stats[f'{est}_conditional']['median']
