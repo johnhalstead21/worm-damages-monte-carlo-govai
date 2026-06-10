@@ -113,7 +113,7 @@ willingness = {
 }
 
 # --- Potential damages per event (rows 108-110) ---
-damages_triplet = (1e9, 12247448714.0, 150e9)  # ($1B, ~$12.2B geomean, $150B)
+damages_triplet = (10e9, 38729833462.0, 150e9)  # ($10B, ~$38.7B geomean, $150B)
 
 # ============================================================
 # Distribution fitting utilities
